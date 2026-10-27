@@ -7,14 +7,23 @@ import Announcements from './components/Announcements';
 import ClinicLocation from './components/ClinicLocation';
 import ClinicStatus from './components/ClinicStatus';
 import Appointments from './pages/Appointments';
+import AppointmentReminder from './components/AppointmentReminder';
+import StaffApprovals from './pages/StaffApprovals';
+import CreateStaffAccount from './pages/CreateStaffAccount';
 import { apiRequest, TOKEN_KEY } from './services/api';
-
+import Reception from './pages/Reception';
+import LiveQueueBoard from './pages/LiveQueueBoard';
+import NextAppointment from './components/NextAppointment';
+import AppointmentHistory from './pages/AppointmentHistory';
+import PatientQueue from './pages/PatientQueue';
 
 const emptyForm = {
   name: '',
   email: '',
   password: '',
   password_confirmation: '',
+  account_type: 'patient',
+  invitation_code: '',
 };
 
 function App() {
@@ -96,7 +105,8 @@ function App() {
 
     if (loading) return;
 
-    const isRegister = page === 'register';
+    const isStaffRegister = page === 'staffRegister';
+    const isRegister = page === 'register' || isStaffRegister;
 
     setLoading(true);
     setMessage('');
@@ -104,7 +114,11 @@ function App() {
 
     try {
       const data = await apiRequest(
-        isRegister ? '/register' : '/login',
+          isStaffRegister
+          ? '/staff/register'
+          : isRegister
+            ? '/register'
+            : '/login',
         {
           method: 'POST',
           body: JSON.stringify(
@@ -117,6 +131,13 @@ function App() {
           ),
         }
       );
+
+      if (isRegister && data.approval_required) {
+        setForm({ ...emptyForm });
+        setPage('login');
+        setMessage(data.message);
+        return;
+      }
 
       if (!data.token || !data.user) {
         throw new Error('The server returned an incomplete login response.');
@@ -189,9 +210,64 @@ function App() {
         </a>
 
         <nav>
+
+            <button
+            type="button"
+            className="secondary-button"
+            disabled={navigationDisabled}
+            onClick={() => openPage('liveBoard')}
+          >
+            Queue Board
+          </button>
+
           {!sessionChecking && !sessionError && (
             user ? (
               <>
+
+                {['admin', 'reception'].includes(user.role) && (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={loading}
+                    onClick={() => openPage('reception')}
+                  >
+                    Reception
+                  </button>
+                )}
+
+                {user.role === 'admin' && (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={loading}
+                    onClick={() => openPage('createStaff')}
+                  >
+                    Create Staff
+                  </button>
+                )}
+
+                {user.role === 'patient' && (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={loading}
+                    onClick={() => openPage('patientQueue')}
+                  >
+                    My Queue
+                  </button>
+                )}
+
+                {user.role === 'patient' && (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={loading}
+                    onClick={() => openPage('appointmentHistory')}
+                  >
+                    Appointment History
+                  </button>
+                )}
+
                 <button
                   type="button"
                   className="secondary-button"
@@ -243,6 +319,14 @@ function App() {
         <div className="notice error" role="alert">
           {error}
         </div>
+      )}
+
+      {user && !sessionChecking && !sessionError && (
+        <AppointmentReminder
+          token={token}
+          page={page}
+          openPage={openPage}
+        />
       )}
 
       {sessionChecking ? (
@@ -335,6 +419,12 @@ function App() {
                   </div>
                 </article>
               </section>
+              {user?.role === 'patient' && (
+                <NextAppointment
+                  token={token}
+                  openPage={openPage}
+                />
+              )}
               <ClinicStatus />
               <ClinicHours />
               <Announcements />
@@ -355,6 +445,36 @@ function App() {
 
             {page === 'appointments' && user && (
             <Appointments token={token} user={user} />
+          )}
+
+          {page === 'staffApprovals' && user?.role === 'admin' && (
+            <StaffApprovals token={token} />
+          )}
+
+          {page === 'createStaff' && user?.role === 'admin' && (
+            <CreateStaffAccount token={token} />
+          )}
+
+            {page === 'reception' &&
+            user?.approval_status === 'approved' &&
+            ['admin', 'reception'].includes(user?.role) && (
+              <Reception token={token} />
+            )}
+
+            {page === 'liveBoard' && (
+            <LiveQueueBoard />
+          )}
+          {page === 'appointmentHistory' && user?.role === 'patient' && (
+            <AppointmentHistory
+              token={token}
+              openPage={openPage}
+            />
+          )}
+          {page === 'patientQueue' && user?.role === 'patient' && (
+            <PatientQueue
+              token={token}
+              openPage={openPage}
+            />
           )}
           {page === 'dashboard' && user && (
             <main className="auth-page">

@@ -11,6 +11,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Models\QueueEntry;
+
 
 class AppointmentController extends Controller
 {
@@ -182,6 +184,215 @@ class AppointmentController extends Controller
         ], 201);
     }
 
+    public function reschedule(
+        Request $request,
+        Appointment $appointment
+    ): JsonResponse {
+        if ((int) $appointment->user_id !== (int) $request->user()->id) {
+            abort(403, 'You cannot reschedule another user\'s appointment.');
+        }
+
+        $validated = $request->validate([
+            'appointment_date' => [
+                'required',
+                'date_format:Y-m-d',
+                'after_or_equal:today',
+            ],
+            'appointment_time' => [
+                'required',
+                'date_format:H:i',
+            ],
+        ]);
+
+        $date = $validated['appointment_date'];
+        $time = $validated['appointment_time'];
+
+        if (! in_array($time, $this->scheduledTimes($date), true)) {
+            throw ValidationException::withMessages([
+                'appointment_time' => [
+                    'Please choose a time within clinic operating hours.',
+                ],
+            ]);
+        }
+
+        if ($this->slotHasPassed($date, $time)) {
+            throw ValidationException::withMessages([
+                'appointment_time' => [
+                    'Please choose a future appointment time.',
+                ],
+            ]);
+        }
+
+        try {
+            return DB::transaction(function () use (
+                $appointment,
+                $date,
+                $time
+            ) {
+                $booking = Appointment::query()
+                    ->whereKey($appointment->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($booking->checked_in_at !== null) {
+                    return response()->json([
+                        'message' => 'Checked-in appointments cannot be changed. Please contact reception.',
+                    ], 422);
+                }
+
+                if ($booking->status !== 'booked') {
+                    return response()->json([
+                        'message' => 'Only booked appointments can be rescheduled.',
+                    ], 422);
+                }
+
+                $originalDate = $booking->appointment_date->format('Y-m-d');
+
+                if ($this->slotHasPassed(
+                    $originalDate,
+                    $booking->appointment_time
+                )) {
+                    return response()->json([
+                        'message' => 'Past appointments cannot be rescheduled.',
+                    ], 422);
+                }
+
+                if (
+                    $originalDate === $date &&
+                    $booking->appointment_time === $time
+                ) {
+                    return response()->json([
+                        'message' => 'Please choose a different date or time.',
+                    ], 422);
+                }
+
+                $booking->update([
+                    'appointment_date' => $date,
+                    'appointment_time' => $time,
+                    'active_slot' => implode('|', [
+                        $booking->department,
+                        $date,
+                        $time,
+                    ]),
+                ]);
+
+                return response()->json([
+                    'message' => 'Your appointment has been rescheduled.',
+                    'appointment' => $booking->fresh(),
+                ]);
+            });
+        } catch (UniqueConstraintViolationException $exception) {
+            return response()->json([
+                'message' => 'That slot has just been taken. Please choose another time.',
+            ], 409);
+        }
+    }
+
+        public function checkIn(
+        Request $request,
+        Appointment $appointment
+    ): JsonResponse {
+        if ((int) $appointment->user_id !== (int) $request->user()->id) {
+            abort(403, 'You cannot check in for another user\'s appointment.');
+        }
+
+        try {
+            return DB::transaction(function () use ($appointment) {
+                $booking = Appointment::query()
+                    ->whereKey($appointment->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $existing = QueueEntry::query()
+                    ->where('appointment_id', $booking->id)
+                    ->first();
+
+                if ($existing) {
+                    return response()->json([
+                        'message' => 'You have already checked in.',
+                        'queue' => $existing,
+                    ]);
+                }
+
+                if ($booking->status !== 'booked') {
+                    return response()->json([
+                        'message' => 'Only booked appointments can be checked in.',
+                    ], 422);
+                }
+
+                $today = now('Asia/Manila')->toDateString();
+
+                if ($booking->appointment_date->format('Y-m-d') !== $today) {
+                    return response()->json([
+                        'message' => 'You can check in only on your appointment date.',
+                    ], 422);
+                }
+
+                if ($booking->checked_in_at !== null) {
+                    return response()->json([
+                        'message' => 'This appointment is already checked in. Please contact reception for your queue number.',
+                    ], 409);
+                }
+
+                $entry = QueueEntry::create([
+                    'appointment_id' => $booking->id,
+                    'patient_name' => $booking->patient_name,
+                    'department' => $booking->department,
+                    'queue_date' => $today,
+                    'status' => 'waiting',
+                    'registration_type' => 'appointment',
+                    'registered_by' => $booking->user_id,
+                    'user_id' => $booking->user_id,
+                    'active_patient_key' => $booking->user_id.'|'.$today,
+                ]);
+
+                $entry->update([
+                    'queue_number' => 'Q-'.str_pad(
+                        (string) $entry->id,
+                        6,
+                        '0',
+                        STR_PAD_LEFT
+                    ),
+                ]);
+
+                $booking->update([
+                    'checked_in_at' => now(),
+                ]);
+
+                return response()->json([
+                    'message' => 'Check-in successful. You have joined the queue.',
+                    'queue' => $entry->fresh(),
+                ], 201);
+            }, 3);
+        } catch (UniqueConstraintViolationException $exception) {
+            $existing = QueueEntry::query()
+                ->where('appointment_id', $appointment->id)
+                ->first();
+
+                        if (! $existing) {
+                $activeQueue = QueueEntry::query()
+                    ->where(
+                        'active_patient_key',
+                        $appointment->user_id.'|'.
+                        now('Asia/Manila')->toDateString()
+                    )
+                    ->first();
+
+                if ($activeQueue) {
+                    return response()->json([
+                        'message' => 'You already have an active queue entry today. Please finish that visit before checking in.',
+                    ], 409);
+                }
+
+                throw $exception;
+            }
+
+            return response()->json([
+                'message' => 'You have already checked in.',
+                'queue' => $existing,
+            ]);
+        }
+    }
     public function cancel(
         Request $request,
         Appointment $appointment
