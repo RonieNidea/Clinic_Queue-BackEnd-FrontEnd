@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'reason',
     'status',
     'active_slot',
+    'checked_in_at',
 ])]
 #[Hidden(['active_slot'])]
 class Appointment extends Model
@@ -24,6 +25,7 @@ class Appointment extends Model
     {
         return [
             'appointment_date' => 'date:Y-m-d',
+            'checked_in_at' => 'datetime',
         ];
     }
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiRequest } from '../services/api';
+import RescheduleAppointment from '../components/RescheduleAppointment';
 
 const departments = [
   'General Medicine',
@@ -51,6 +52,7 @@ function Appointments({ token, user }) {
   const [message, setMessage] = useState('');
   const [confirmation, setConfirmation] = useState(null);
   const [refresh, setRefresh] = useState(0);
+  const [rescheduling, setRescheduling] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,6 +128,44 @@ function Appointments({ token, user }) {
 
     loadAppointments();
 
+      async function checkInAppointment(appointment) {
+    if (busy || rescheduling) return;
+
+    setBusy(true);
+    setError('');
+    setMessage('');
+    setConfirmation(null);
+
+    try {
+      const data = await apiRequest(
+        `/appointments/${appointment.id}/check-in`,
+        {
+          method: 'POST',
+          token,
+        }
+      );
+
+      localStorage.setItem(
+        'clinicqueueweb_tracked_queue',
+        JSON.stringify({
+          date: data.queue.queue_date,
+          department: data.queue.department,
+          number: data.queue.queue_number,
+        })
+      );
+
+      setMessage(
+        `${data.message} Your queue number is ${data.queue.queue_number}.`
+      );
+
+      setRefresh((value) => value + 1);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
     return () => {
       cancelled = true;
     };
@@ -166,10 +206,14 @@ function Appointments({ token, user }) {
       setReason('');
       setTime('');
       setRefresh((value) => value + 1);
-    } catch (err) {
-      setError(err.message);
+        } catch (err) {
+      setError(
+        err.status === 409
+          ? 'That slot was just taken by another patient. Please choose another available time.'
+          : err.message
+      );
 
-      // Reload the slots if availability changed during booking.
+      setTime('');
       setRefresh((value) => value + 1);
     } finally {
       setBusy(false);
@@ -249,6 +293,26 @@ function Appointments({ token, user }) {
         </section>
       )}
 
+            {rescheduling && (
+        <RescheduleAppointment
+          key={rescheduling.id}
+          appointment={rescheduling}
+          token={token}
+          onClose={() => setRescheduling(null)}
+          onSaved={(data) => {
+            setRescheduling(null);
+            setConfirmation(null);
+            setError('');
+            setMessage(
+              `${data.message} New schedule: ` +
+              `${data.appointment.appointment_date} at ` +
+              formatTime(data.appointment.appointment_time)
+            );
+            setRefresh((value) => value + 1);
+          }}
+        />
+      )}
+
       <div className="appointments-layout">
         <form
           className="auth-card booking-form"
@@ -256,7 +320,7 @@ function Appointments({ token, user }) {
         >
           <h2>Book an Appointment</h2>
 
-          <fieldset disabled={busy}>
+          <fieldset disabled={busy || Boolean(rescheduling)}>
             <label>
               Patient name
               <input
@@ -418,15 +482,63 @@ function Appointments({ token, user }) {
                   {formatTime(appointment.appointment_time)}
                 </p>
 
-                {appointment.status === 'booked' && (
-                  <button
-                    type="button"
-                    className="secondary-button cancel-booking"
-                    disabled={busy}
-                    onClick={() => cancelAppointment(appointment)}
-                  >
-                    Cancel Appointment
-                  </button>
+                                {appointment.checked_in_at && (
+                  <p className="check-in-label">
+                    Checked in — your queue number is available on the Queue Board.
+                  </p>
+                )}
+
+                {appointment.status === 'booked' &&
+                  !appointment.checked_in_at &&
+                  appointment.appointment_date === todayInManila() && (
+                    <button
+                      type="button"
+                      className="primary-button"
+                      disabled={busy || Boolean(rescheduling)}
+                      onClick={() => checkInAppointment(appointment)}
+                    >
+                      {busy ? 'Please wait...' : 'Check In — I Have Arrived'}
+                    </button>
+                  )}
+
+                  {appointment.status === 'booked' &&
+                  !appointment.checked_in_at && (
+                  <div className="appointment-actions">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={
+                        busy ||
+                        Boolean(rescheduling) ||
+                        new Date(
+                          `${appointment.appointment_date}T` +
+                          `${appointment.appointment_time}:00+08:00`
+                        ).getTime() <= Date.now()
+                      }
+                      onClick={() => {
+                        setError('');
+                        setMessage('');
+                        setConfirmation(null);
+                        setRescheduling(appointment);
+
+                        window.scrollTo({
+                          top: 0,
+                          behavior: 'smooth',
+                        });
+                      }}
+                    >
+                      Reschedule
+                    </button>
+
+                    <button
+                      type="button"
+                      className="secondary-button cancel-booking"
+                      disabled={busy || Boolean(rescheduling)}
+                      onClick={() => cancelAppointment(appointment)}
+                    >
+                      Cancel Appointment
+                    </button>
+                  </div>
                 )}
               </article>
             ))
