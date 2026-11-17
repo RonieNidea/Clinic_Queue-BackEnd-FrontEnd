@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'patient_name',
@@ -28,5 +29,9 @@ class QueueEntry extends Model
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
         ];
+    }
+        public function visit(): HasOne
+    {
+        return $this->hasOne(Visit::class);
     }
 }

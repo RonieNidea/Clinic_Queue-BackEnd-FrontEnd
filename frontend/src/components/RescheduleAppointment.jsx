@@ -39,6 +39,7 @@ function RescheduleAppointment({
   const [error, setError] = useState('');
   const [clinicClosed, setClinicClosed] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [period, setPeriod] = useState('all');
 
   useEffect(() => {
     let cancelled = false;
@@ -131,6 +132,17 @@ function RescheduleAppointment({
       setSaving(false);
     }
   }
+    const visibleSlots = slots.filter((slot) => {
+    if (period === 'morning') {
+      return slot.time < '12:00';
+    }
+
+    if (period === 'afternoon') {
+      return slot.time >= '12:00';
+    }
+
+    return true;
+  });
 
   return (
     <section className="reschedule-panel">
@@ -180,6 +192,22 @@ function RescheduleAppointment({
               stays reserved until the change succeeds.
             </p>
 
+            <label>
+              Time period
+              <select
+                value={period}
+                onChange={(event) => {
+                  setPeriod(event.target.value);
+                  setTime('');
+                }}
+                disabled={saving || loading}
+              >
+                <option value="all">All day</option>
+                <option value="morning">Morning — before noon</option>
+                <option value="afternoon">Afternoon — noon onward</option>
+              </select>
+            </label>
+
             {loading ? (
               <p role="status">Loading appointment times...</p>
             ) : slotsError ? (
@@ -193,7 +221,7 @@ function RescheduleAppointment({
             ) : (
               <>
                 <div className="slot-grid">
-                  {slots.map((slot) => {
+                  {visibleSlots.map((slot) => {
                     const isCurrent =
                       date === appointment.appointment_date &&
                       slot.time === appointment.appointment_time;
@@ -217,7 +245,9 @@ function RescheduleAppointment({
                             : slot.status === 'booked'
                               ? 'Taken'
                               : slot.status === 'past'
-                                ? 'Past'
+                              ? 'Past'
+                              : slot.status === 'blocked'
+                                ? 'Blocked'
                                 : 'Available'}
                         </small>
                       </button>
@@ -225,8 +255,10 @@ function RescheduleAppointment({
                   })}
                 </div>
 
-                {!slots.some((slot) => slot.available) && (
-                  <p>No open times remain. Choose another date.</p>
+                {!visibleSlots.some((slot) => slot.available) && (
+                  <p>
+                    No available times in this period. Choose another period or date.
+                  </p>
                 )}
               </>
             )}

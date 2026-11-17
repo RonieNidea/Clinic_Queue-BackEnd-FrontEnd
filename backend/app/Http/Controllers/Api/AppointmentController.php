@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use App\Models\QueueEntry;
-
+use App\Models\AppointmentBlock;
 
 class AppointmentController extends Controller
 {
@@ -95,6 +95,8 @@ class AppointmentController extends Controller
                 $status = 'booked';
             } elseif ($this->slotHasPassed($date, $time)) {
                 $status = 'past';
+            } elseif ($this->isBlocked($date, $time, $department)) {
+                $status = 'blocked';
             } else {
                 $status = 'available';
             }
@@ -149,6 +151,13 @@ class AppointmentController extends Controller
             throw ValidationException::withMessages([
                 'appointment_time' => [
                     'Please choose a future appointment time.',
+                ],
+            ]);
+        }
+                if ($this->isBlocked($date, $time, $validated['department'])) {
+            throw ValidationException::withMessages([
+                'appointment_time' => [
+                    'This time is blocked by the clinic. Please choose another slot.',
                 ],
             ]);
         }
@@ -219,6 +228,14 @@ class AppointmentController extends Controller
             throw ValidationException::withMessages([
                 'appointment_time' => [
                     'Please choose a future appointment time.',
+                ],
+            ]);
+        }
+
+        if ($this->isBlocked($date, $time, $appointment->department)) {
+            throw ValidationException::withMessages([
+                'appointment_time' => [
+                    'This time is blocked by the clinic. Please choose another slot.',
                 ],
             ]);
         }
@@ -423,5 +440,23 @@ class AppointmentController extends Controller
                 'appointment' => $booking->fresh(),
             ]);
         });
+    }
+
+        private function isBlocked(
+        string $date,
+        string $time,
+        string $department
+    ): bool {
+        $end = CarbonImmutable::parse(
+            "{$date} {$time}",
+            'Asia/Manila'
+        )->addMinutes(30)->format('H:i');
+
+        return AppointmentBlock::query()
+            ->where('department', $department)
+            ->where('block_date', $date)
+            ->where('start_time', '<', $end)
+            ->where('end_time', '>', $time)
+            ->exists();
     }
 }

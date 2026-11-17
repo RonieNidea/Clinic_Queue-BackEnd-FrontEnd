@@ -2284,3 +2284,260 @@ footer > span {
   max-width: 700px;
   margin: 36px auto 0;
 }
+
+.visit-summaries-page {
+  max-width: 1100px;
+  min-height: 65vh;
+  margin: auto;
+  padding: 48px 24px 72px;
+}
+
+.visit-summaries-page h1,
+.visit-summaries-page h2,
+.visit-summaries-page h3 {
+  color: #17345b;
+}
+
+.visit-summary-list {
+  display: grid;
+  gap: 24px;
+}
+
+.visit-summary-card {
+  padding: 28px;
+  background: #ffffff;
+  border: 1px solid #e4eaf1;
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(25, 50, 85, 0.05);
+}
+
+.visit-summary-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.visit-summary-heading h2 {
+  margin: 12px 0;
+}
+
+.visit-summary-card p {
+  color: #526176;
+  line-height: 1.8;
+}
+
+.visit-completed-label {
+  padding: 7px 12px;
+  color: #176943;
+  background: #eaf8f0;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.visit-summary-section {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid #e4eaf1;
+}
+
+.visit-summary-section p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.visit-summary-empty {
+  padding: 40px 24px;
+  text-align: center;
+  color: #66758a;
+  background: #f6f8fc;
+  border: 1px dashed #c7d3e2;
+  border-radius: 16px;
+}
+
+.visit-summary-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 28px;
+}
+
+.visit-summaries-page button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.visit-rating-form {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e4eaf1;
+}
+
+.visit-rating-form label {
+  display: block;
+  margin: 16px 0;
+  color: #17345b;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.visit-rating-form select,
+.visit-rating-form textarea {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  color: #17345b;
+  background: #ffffff;
+  border: 1px solid #d9e1eb;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.visit-rating-form textarea {
+  resize: vertical;
+}
+
+.visit-rating-form select:focus,
+.visit-rating-form textarea:focus {
+  border-color: #2866b2;
+  outline: 2px solid #dceaff;
+}
+
+.visit-rating-form .rating-success {
+  color: #176943;
+}
+
+.visit-rating-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.health-notes-section {
+  padding: 20px;
+  background: #f6f8fc;
+  border: 1px solid #e4eaf1;
+  border-radius: 12px;
+}
+
+.health-notes-section h3 {
+  margin-top: 0;
+}
+
+.health-notes-section p {
+  margin-bottom: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.records-search-form {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.records-search-form .staff-search {
+  min-width: 200px;
+}
+
+.records-filter {
+  flex: 1 1 160px;
+  color: #17345b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.records-filter input,
+.records-filter select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 11px 14px;
+  color: #17345b;
+  background: #ffffff;
+  border: 1px solid #d9e1eb;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.records-filter input:focus,
+.records-filter select:focus {
+  border-color: #2866b2;
+  outline: 2px solid #dceaff;
+}
+
+.record-visit-form {
+  max-width: 760px;
+  margin: 28px auto;
+}
+
+.record-visit-form fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.record-visit-form textarea {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 13px;
+  color: #17345b;
+  background: #ffffff;
+  border: 1px solid #d9e1eb;
+  border-radius: 8px;
+  font: inherit;
+  resize: vertical;
+}
+
+.record-visit-form textarea:focus {
+  border-color: #2866b2;
+  outline: 2px solid #dceaff;
+}
+
+.record-visit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.visit-slip-action {
+  margin-top: 24px;
+}
+
+.visit-slip-frame {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 794px;
+  height: 1123px;
+  border: 0;
+  pointer-events: none;
+}
+
+.time-slot.blocked {
+  color: #795329;
+  background: #fff3e5;
+  border-color: #efd3b0;
+}
+
+.block-time-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 550px) {
+  .block-time-fields {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}

@@ -100,7 +100,7 @@ function PatientQueue({ token, openPage }) {
     ['waiting', 'serving'].includes(queue.status)
   );
 
-    const departmentBoard =
+  const departmentBoard =
     board &&
     activeQueue &&
     board.date === activeQueue.queue_date
