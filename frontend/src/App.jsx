@@ -16,6 +16,10 @@ import LiveQueueBoard from './pages/LiveQueueBoard';
 import NextAppointment from './components/NextAppointment';
 import AppointmentHistory from './pages/AppointmentHistory';
 import PatientQueue from './pages/PatientQueue';
+import VisitSummaries from './pages/VisitSummaries';
+import StaffRecords from './pages/StaffRecords';
+import RecordVisit from './pages/RecordVisit';
+import AppointmentBlocks from './pages/AppointmentBlocks';
 
 const emptyForm = {
   name: '',
@@ -246,6 +250,42 @@ function App() {
                   </button>
                 )}
 
+                {['admin', 'staff'].includes(user.role) &&
+                  user.approval_status === 'approved' && (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={loading}
+                      onClick={() => openPage('staffRecords')}
+                    >
+                      Visit Records
+                    </button>
+                  )}
+
+                {['admin', 'staff'].includes(user.role) &&
+                  user.approval_status === 'approved' && (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={loading}
+                      onClick={() => openPage('appointmentBlocks')}
+                    >
+                      Block Times
+                    </button>
+                  )}
+
+                  {['admin', 'staff'].includes(user.role) &&
+                  user.approval_status === 'approved' && (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={loading}
+                      onClick={() => openPage('recordVisit')}
+                    >
+                      Record Visit
+                    </button>
+                  )}
+
                 {user.role === 'patient' && (
                   <button
                     type="button"
@@ -265,6 +305,17 @@ function App() {
                     onClick={() => openPage('appointmentHistory')}
                   >
                     Appointment History
+                  </button>
+                )}
+
+                {user.role === 'patient' && (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={loading}
+                    onClick={() => openPage('visitSummaries')}
+                  >
+                    Visit Summaries
                   </button>
                 )}
 
@@ -476,6 +527,32 @@ function App() {
               openPage={openPage}
             />
           )}
+
+          {page === 'visitSummaries' && user?.role === 'patient' && (
+            <VisitSummaries token={token} />
+          )}
+
+          {page === 'staffRecords' &&
+            user?.approval_status === 'approved' &&
+            ['admin', 'staff'].includes(user?.role) && (
+              <StaffRecords token={token} />
+            )}
+
+          {page === 'recordVisit' &&
+            user?.approval_status === 'approved' &&
+            ['admin', 'staff'].includes(user?.role) && (
+              <RecordVisit
+                token={token}
+                openPage={openPage}
+              />
+            )}
+
+          {page === 'appointmentBlocks' &&
+            user?.approval_status === 'approved' &&
+            ['admin', 'staff'].includes(user?.role) && (
+              <AppointmentBlocks token={token} user={user} />
+            )}
+
           {page === 'dashboard' && user && (
             <main className="auth-page">
               <section className="dashboard-card">

@@ -1,25 +1,32 @@
 <?php
 
+use App\Http\Controllers\Api\AppointmentBlockController;
 use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\PatientQueueController;
+use App\Http\Controllers\Api\PatientVisitController;
+use App\Http\Controllers\Api\QueueController;
+use App\Http\Controllers\Api\StaffAccountController;
+use App\Http\Controllers\Api\StaffApprovalController;
+use App\Http\Controllers\Api\StaffVisitController;
+use App\Http\Middleware\EnsureAdmin;
+use App\Http\Middleware\EnsureReceptionOrAdmin;
+use App\Http\Middleware\LockClinicSchedule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\StaffApprovalController;
-use App\Http\Middleware\EnsureAdmin;
-use App\Http\Controllers\Api\StaffAccountController;
-use App\Http\Controllers\Api\QueueController;
-use App\Http\Middleware\EnsureReceptionOrAdmin;
-use App\Http\Controllers\Api\PatientQueueController;
 
+// Public authentication.
 Route::post('/register', [AuthController::class, 'register'])
     ->middleware('throttle:5,1');
 
 Route::post('/login', [AuthController::class, 'login'])
     ->middleware('throttle:5,1');
 
+// Public queue board.
 Route::get('/queues/live-board', [QueueController::class, 'liveBoard'])
     ->middleware('throttle:60,1');
 
+// Signed-in accounts and appointments.
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
@@ -40,12 +47,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post(
         '/appointments',
         [AppointmentController::class, 'store']
-    );
+    )->middleware(LockClinicSchedule::class);
 
-        Route::patch(
+    Route::patch(
         '/appointments/{appointment}/reschedule',
         [AppointmentController::class, 'reschedule']
-    );
+    )->middleware(LockClinicSchedule::class);
 
     Route::patch(
         '/appointments/{appointment}/cancel',
@@ -58,7 +65,8 @@ Route::middleware('auth:sanctum')->group(function () {
     );
 });
 
-    Route::middleware(['auth:sanctum', EnsureAdmin::class])
+// Administrator staff management.
+Route::middleware(['auth:sanctum', EnsureAdmin::class])
     ->prefix('admin')
     ->group(function () {
         Route::get(
@@ -71,14 +79,14 @@ Route::middleware('auth:sanctum')->group(function () {
             [StaffAccountController::class, 'store']
         );
 
-        // Keep this for reviewing any existing pending accounts.
         Route::patch(
             '/staff/{staff}',
             [StaffApprovalController::class, 'update']
         );
     });
 
-    Route::middleware(['auth:sanctum', EnsureReceptionOrAdmin::class])
+// Reception and administrator walk-in registration.
+Route::middleware(['auth:sanctum', EnsureReceptionOrAdmin::class])
     ->prefix('reception')
     ->group(function () {
         Route::get(
@@ -92,7 +100,9 @@ Route::middleware('auth:sanctum')->group(function () {
         );
     });
 
-    Route::middleware('auth:sanctum')
+// Patient queues, summaries, and ratings.
+// Controllers also enforce patient role and record ownership.
+Route::middleware('auth:sanctum')
     ->prefix('patient')
     ->group(function () {
         Route::get(
@@ -104,4 +114,60 @@ Route::middleware('auth:sanctum')->group(function () {
             '/queues',
             [PatientQueueController::class, 'store']
         )->middleware('throttle:5,1');
+
+        Route::get(
+            '/visit-summaries',
+            [PatientVisitController::class, 'summaries']
+        );
+
+        Route::post(
+            '/visits/{visit}/rating',
+            [PatientVisitController::class, 'rate']
+        )->middleware('throttle:10,1');
+    });
+
+// Clinical staff records and appointment blocks.
+// Controllers also enforce role and department access.
+Route::middleware('auth:sanctum')
+    ->prefix('staff')
+    ->group(function () {
+        Route::get(
+            '/visit-candidates',
+            [StaffVisitController::class, 'candidates']
+        );
+
+        Route::get(
+            '/visits',
+            [StaffVisitController::class, 'index']
+        );
+
+        Route::post(
+            '/visits',
+            [StaffVisitController::class, 'store']
+        );
+
+        Route::get(
+            '/visits/{visit}/history',
+            [StaffVisitController::class, 'history']
+        );
+
+        Route::get(
+            '/visits/{visit}/slip',
+            [StaffVisitController::class, 'slip']
+        );
+
+        Route::get(
+            '/appointment-blocks',
+            [AppointmentBlockController::class, 'index']
+        );
+
+        Route::post(
+            '/appointment-blocks',
+            [AppointmentBlockController::class, 'store']
+        )->middleware(LockClinicSchedule::class);
+
+        Route::delete(
+            '/appointment-blocks/{block}',
+            [AppointmentBlockController::class, 'destroy']
+        )->middleware(LockClinicSchedule::class);
     });

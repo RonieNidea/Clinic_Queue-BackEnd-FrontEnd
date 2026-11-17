@@ -37,7 +37,7 @@ function Appointments({ token, user }) {
   const [date, setDate] = useState(todayInManila);
   const [time, setTime] = useState('');
   const [reason, setReason] = useState('');
-
+  const [period, setPeriod] = useState('all');
   const [slots, setSlots] = useState([]);
   const [clinicClosed, setClinicClosed] = useState(false);
   const [slotsLoading, setSlotsLoading] = useState(true);
@@ -257,6 +257,19 @@ function Appointments({ token, user }) {
     }
   }
 
+    const visibleSlots = slots.filter((slot) => {
+    if (period === 'morning') {
+      return slot.time < '12:00';
+    }
+
+    if (period === 'afternoon') {
+      return slot.time >= '12:00';
+    }
+
+    return true;
+  });
+
+
   return (
     <main className="appointments-page">
       <div className="section-heading">
@@ -372,6 +385,22 @@ function Appointments({ token, user }) {
                 cannot be selected.
               </p>
 
+              <label>
+                Time period
+                <select
+                  value={period}
+                  onChange={(event) => {
+                    setPeriod(event.target.value);
+                    setTime('');
+                  }}
+                  disabled={busy || slotsLoading}
+                >
+                  <option value="all">All day</option>
+                  <option value="morning">Morning — before noon</option>
+                  <option value="afternoon">Afternoon — noon onward</option>
+                </select>
+              </label>
+
               {slotsLoading ? (
                 <p role="status">Loading appointment times...</p>
               ) : slotsError ? (
@@ -385,7 +414,7 @@ function Appointments({ token, user }) {
               ) : (
                 <>
                   <div className="slot-grid">
-                    {slots.map((slot) => (
+                    {visibleSlots.map((slot) => (
                       <button
                         key={slot.time}
                         type="button"
@@ -403,14 +432,18 @@ function Appointments({ token, user }) {
                             ? 'Taken'
                             : slot.status === 'past'
                               ? 'Past'
-                              : 'Available'}
+                              : slot.status === 'blocked'
+                                ? 'Blocked'
+                                : 'Available'}
                         </small>
                       </button>
                     ))}
                   </div>
 
-                  {!slots.some((slot) => slot.available) && (
-                    <p>No open times remain. Please choose another date.</p>
+                  {!visibleSlots.some((slot) => slot.available) && (
+                    <p>
+                      No available times in this period. Choose another period or date.
+                    </p>
                   )}
                 </>
               )}
