@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiRequest } from '../services/api';
 import RescheduleAppointment from '../components/RescheduleAppointment';
+import ClinicFees from '../components/ClinicFees';
 
 const departments = [
   'General Medicine',
@@ -61,7 +62,6 @@ function Appointments({ token, user }) {
       setSlotsLoading(true);
       setSlotsError('');
       setSlots([]);
-      setTime('');
       setClinicClosed(false);
 
       if (!date) {
@@ -83,6 +83,15 @@ function Appointments({ token, user }) {
         if (!cancelled) {
           setSlots(data.slots);
           setClinicClosed(data.clinic_closed);
+
+          setTime((selectedTime) =>
+            data.slots.some(
+              (slot) =>
+                slot.time === selectedTime && slot.available
+            )
+              ? selectedTime
+              : ''
+          );
         }
       } catch (err) {
         if (!cancelled) {
@@ -206,15 +215,18 @@ function Appointments({ token, user }) {
       setReason('');
       setTime('');
       setRefresh((value) => value + 1);
-        } catch (err) {
+    } catch (err) {
       setError(
         err.status === 409
-          ? 'That slot was just taken by another patient. Please choose another available time.'
-          : err.message
+          ? 'That slot was just taken. Your other details are saved in the form. Please choose another available time.'
+          : err.status
+            ? `${err.message} Your form details have been kept.`
+            : `${err.message} Your selection has been kept. Check My Appointments before retrying because the booking could not be confirmed.`
       );
 
-      setTime('');
-      setRefresh((value) => value + 1);
+      if (err.status === 409 || err.status === 422) {
+        setRefresh((value) => value + 1);
+      }
     } finally {
       setBusy(false);
     }
@@ -337,6 +349,7 @@ function Appointments({ token, user }) {
             <label>
               Patient name
               <input
+                id="appointment-patient-name"
                 type="text"
                 value={patientName}
                 onChange={(event) => setPatientName(event.target.value)}
@@ -363,6 +376,8 @@ function Appointments({ token, user }) {
                 ))}
               </select>
             </label>
+
+            <ClinicFees department={department} />
 
             <label>
               Appointment date
@@ -495,8 +510,39 @@ function Appointments({ token, user }) {
             <p className="appointment-error" role="alert">
               {listError}
             </p>
-          ) : appointments.length === 0 ? (
-            <p>You have no appointments yet.</p>
+                    ) : appointments.length === 0 ? (
+            <section className="appointments-empty-state">
+              <span className="empty-state-icon" aria-hidden="true">
+                +
+              </span>
+
+              <h3>Your first clinic visit starts here</h3>
+
+              <p>
+                You have no appointments yet. Choose a department,
+                date, and available time in the booking form.
+              </p>
+
+              <button
+                type="button"
+                className="primary-button"
+                disabled={busy || Boolean(rescheduling)}
+                onClick={() => {
+                  const input = document.getElementById(
+                    'appointment-patient-name'
+                  );
+
+                  input?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                  });
+
+                  input?.focus({ preventScroll: true });
+                }}
+              >
+                Start Booking
+              </button>
+            </section>
           ) : (
             appointments.map((appointment) => (
               <article

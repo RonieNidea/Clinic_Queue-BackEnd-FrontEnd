@@ -11,9 +11,23 @@ use Illuminate\Validation\Rule;
 use App\Models\Appointment;
 use App\Models\QueueEntry;
 use Illuminate\Support\Facades\DB;
+use App\Models\VisitReport;
+use App\Models\User;
 
 class StaffVisitController extends Controller
 {
+    private function restrictPatientPrivacy(Builder $query): void
+    {
+        $query->where(function (Builder $allowed) {
+            $allowed->whereNull('user_id')
+                ->orWhereIn(
+                    'user_id',
+                    User::query()
+                        ->select('id')
+                        ->where('record_visibility', 'department_staff')
+                );
+        });
+    }
     private function recordsQuery(Request $request): Builder
     {
         $user = $request->user();
@@ -38,6 +52,7 @@ class StaffVisitController extends Controller
             }
 
             $query->where('department', $user->department);
+            $this->restrictPatientPrivacy($query);
         }
 
         return $query;
@@ -160,6 +175,7 @@ class StaffVisitController extends Controller
 
         if ($request->user()->role === 'staff') {
             $query->where('department', $request->user()->department);
+            $this->restrictPatientPrivacy($query);
         }
 
         $queues = $query
@@ -218,6 +234,18 @@ class StaffVisitController extends Controller
 
             $queue = $query->lockForUpdate()->firstOrFail();
 
+            if (
+                $validated['status'] === 'completed' &&
+                (
+                    $queue->status !== 'serving' ||
+                    $queue->arrived_at === null
+                )
+            ) {
+                return response()->json([
+                    'message' => 'Call the patient and confirm arrival before completing this visit.',
+                ], 422);
+            }
+
             if (! in_array(
                 $queue->status,
                 ['waiting', 'serving', 'completed'],
@@ -266,6 +294,7 @@ class StaffVisitController extends Controller
                     'status' => 'completed',
                     'completed_at' => $queue->completed_at ?? now(),
                     'active_patient_key' => null,
+                    'serving_key' => null,
                 ]);
 
                 if ($queue->appointment_id !== null) {
@@ -307,6 +336,93 @@ class StaffVisitController extends Controller
                 'summary',
                 'care_given',
             ]),
+        ]);
+        
+    }
+
+        public function report(Request $request, Visit $visit): JsonResponse
+    {
+        $record = $this->recordsQuery($request)
+            ->whereKey($visit->id)
+            ->firstOrFail();
+
+        $validated = $request->validate([
+            'field' => [
+                'required',
+                Rule::in([
+                    'patient_name',
+                    'student_number',
+                    'department',
+                    'service',
+                    'visit_date',
+                    'reason',
+                    'summary',
+                    'care_given',
+                    'health_notes',
+                    'other',
+                ]),
+            ],
+            'details' => ['required', 'string', 'max:2000'],
+            'suggested_correction' => [
+                'nullable',
+                'string',
+                'max:2000',
+            ],
+        ]);
+
+        $report = VisitReport::create([
+            'visit_id' => $record->id,
+            'reported_by' => $request->user()->id,
+            'field' => $validated['field'],
+            'details' => $validated['details'],
+            'suggested_correction' =>
+                $validated['suggested_correction'] ?? null,
+            'status' => 'open',
+        ]);
+
+        return response()->json([
+            'message' => 'The incorrect details have been reported for review.',
+            'report' => [
+                'id' => $report->id,
+                'visit_id' => $report->visit_id,
+                'status' => $report->status,
+            ],
+        ], 201);
+    }
+
+        public function dailySheet(Request $request): JsonResponse
+    {
+        $query = $this->recordsQuery($request);
+
+        $validated = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+        ]);
+
+        $visits = $query
+            ->where('visit_date', $validated['date'])
+            ->where('status', 'completed')
+            ->whereNotNull('completed_at')
+            ->where('completed_at', '<=', now())
+            ->orderBy('department')
+            ->orderBy('patient_name')
+            ->orderBy('id')
+            ->get([
+                'id',
+                'patient_name',
+                'student_number',
+                'department',
+                'service',
+                'visit_date',
+            ]);
+
+        return response()->json([
+            'date' => $validated['date'],
+            'department' => $request->user()->role === 'admin'
+                ? 'All departments'
+                : $request->user()->department,
+            'prepared_by' => $request->user()->name,
+            'total' => $visits->count(),
+            'visits' => $visits,
         ]);
     }
 }

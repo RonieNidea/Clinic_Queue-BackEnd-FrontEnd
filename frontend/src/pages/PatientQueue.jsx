@@ -8,7 +8,7 @@ const departments = [
   'Health Assessment',
 ];
 
-function PatientQueue({ token, openPage }) {
+function PatientQueue({ token, openPage, alertsEnabled = false }) {
   const [department, setDepartment] = useState(departments[0]);
   const [queues, setQueues] = useState([]);
   const [board, setBoard] = useState(null);
@@ -217,8 +217,13 @@ function PatientQueue({ token, openPage }) {
           </span>
 
           {activeQueue.status === 'serving' ? (
-            <p className="near-turn-notice" role="status">
-              Your number has been called. Please go to your department now.
+            <p
+              className={alertsEnabled ? 'near-turn-notice' : undefined}
+              role={alertsEnabled ? 'status' : undefined}
+            >
+              {alertsEnabled
+                ? 'Your number has been called. Please go to your department now.'
+                : 'Queue status: serving.'}
             </p>
           ) : boardError ? (
             <p role="status">{boardError}</p>
@@ -237,7 +242,7 @@ function PatientQueue({ token, openPage }) {
                 </strong>
               </p>
 
-              {peopleAhead <= 2 && (
+            {alertsEnabled && peopleAhead <= 2 && (
                 <p className="near-turn-notice" role="status">
                   Your turn is nearly up. Please be ready at the clinic.
                 </p>

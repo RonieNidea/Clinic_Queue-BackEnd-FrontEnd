@@ -20,6 +20,15 @@ import VisitSummaries from './pages/VisitSummaries';
 import StaffRecords from './pages/StaffRecords';
 import RecordVisit from './pages/RecordVisit';
 import AppointmentBlocks from './pages/AppointmentBlocks';
+import StaffDashboard from './pages/StaffDashboard';
+import DailyExceptions from './pages/DailyExceptions';
+import DailyVisitSheet from './pages/DailyVisitSheet';
+import MyProfile from './pages/MyProfile';
+import UserSettings from './pages/UserSettings';
+import DepartmentQueue from './pages/DepartmentQueue';
+import Navbar from './components/Navbar';
+import ClinicFees from './components/ClinicFees';
+import Departments from './pages/Departments';
 
 const emptyForm = {
   name: '',
@@ -40,6 +49,35 @@ function App() {
   const [sessionError, setSessionError] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [alertSettings, setAlertSettings] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setAlertSettings(null);
+
+    if (!token) return;
+
+    async function loadAlertSettings() {
+      try {
+        const data = await apiRequest('/settings', { token });
+
+        if (!cancelled) {
+          setAlertSettings(data.settings);
+        }
+      } catch {
+        if (!cancelled) {
+          setAlertSettings(null);
+        }
+      }
+    }
+
+    loadAlertSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -197,168 +235,13 @@ function App() {
 
   return (
     <div className="app">
-      <header className="navbar">
-        <a
-          className="brand"
-          href="#home"
-          onClick={(event) => {
-            event.preventDefault();
-
-            if (!navigationDisabled) {
-              openPage('home');
-            }
-          }}
-        >
-          <span className="brand-icon">+</span>
-          ClinicQueue
-        </a>
-
-        <nav>
-
-            <button
-            type="button"
-            className="secondary-button"
-            disabled={navigationDisabled}
-            onClick={() => openPage('liveBoard')}
-          >
-            Queue Board
-          </button>
-
-          {!sessionChecking && !sessionError && (
-            user ? (
-              <>
-
-                {['admin', 'reception'].includes(user.role) && (
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={loading}
-                    onClick={() => openPage('reception')}
-                  >
-                    Reception
-                  </button>
-                )}
-
-                {user.role === 'admin' && (
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={loading}
-                    onClick={() => openPage('createStaff')}
-                  >
-                    Create Staff
-                  </button>
-                )}
-
-                {['admin', 'staff'].includes(user.role) &&
-                  user.approval_status === 'approved' && (
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      disabled={loading}
-                      onClick={() => openPage('staffRecords')}
-                    >
-                      Visit Records
-                    </button>
-                  )}
-
-                {['admin', 'staff'].includes(user.role) &&
-                  user.approval_status === 'approved' && (
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      disabled={loading}
-                      onClick={() => openPage('appointmentBlocks')}
-                    >
-                      Block Times
-                    </button>
-                  )}
-
-                  {['admin', 'staff'].includes(user.role) &&
-                  user.approval_status === 'approved' && (
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      disabled={loading}
-                      onClick={() => openPage('recordVisit')}
-                    >
-                      Record Visit
-                    </button>
-                  )}
-
-                {user.role === 'patient' && (
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={loading}
-                    onClick={() => openPage('patientQueue')}
-                  >
-                    My Queue
-                  </button>
-                )}
-
-                {user.role === 'patient' && (
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={loading}
-                    onClick={() => openPage('appointmentHistory')}
-                  >
-                    Appointment History
-                  </button>
-                )}
-
-                {user.role === 'patient' && (
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={loading}
-                    onClick={() => openPage('visitSummaries')}
-                  >
-                    Visit Summaries
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={loading}
-                  onClick={() => openPage('appointments')}
-                >
-                  Appointments
-                </button>
-
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={loading}
-                  onClick={() => openPage('dashboard')}
-                >
-                  My Account
-                </button>
-
-                <button
-                  type="button"
-                  className="login-button"
-                  disabled={loading}
-                  onClick={handleLogout}
-                >
-                  {loading ? 'Please wait...' : 'Log Out'}
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="login-button"
-                disabled={loading}
-                onClick={() => openPage('login')}
-              >
-                Log In
-              </button>
-            )
-          )}
-        </nav>
-      </header>
+      <Navbar
+        page={page}
+        user={user}
+        disabled={navigationDisabled}
+        openPage={openPage}
+        handleLogout={handleLogout}
+      />
 
       {message && (
         <div className="notice success" role="status">
@@ -422,6 +305,8 @@ function App() {
                   </p>
 
                   <div className="hero-actions">
+                    
+
                     <button
                       type="button"
                       className="primary-button"
@@ -478,6 +363,7 @@ function App() {
               )}
               <ClinicStatus />
               <ClinicHours />
+              <ClinicFees />
               <Announcements />
               <ClinicLocation />
             </main>
@@ -512,8 +398,22 @@ function App() {
               <Reception token={token} />
             )}
 
+          {page === 'departmentQueue' &&
+            user?.approval_status === 'approved' &&
+            ['admin', 'staff'].includes(user?.role) && (
+              <DepartmentQueue
+                token={token}
+                user={user}
+                openPage={openPage}
+              />
+            )}
+
             {page === 'liveBoard' && (
-            <LiveQueueBoard />
+            <LiveQueueBoard
+              alertsEnabled={
+                !user || alertSettings?.walk_in_alerts === true
+              }
+            />
           )}
           {page === 'appointmentHistory' && user?.role === 'patient' && (
             <AppointmentHistory
@@ -525,12 +425,19 @@ function App() {
             <PatientQueue
               token={token}
               openPage={openPage}
+              alertsEnabled={alertSettings?.walk_in_alerts === true}
             />
           )}
 
           {page === 'visitSummaries' && user?.role === 'patient' && (
             <VisitSummaries token={token} />
           )}
+
+          {page === 'dailyVisitSheet' &&
+            user?.approval_status === 'approved' &&
+            ['admin', 'staff'].includes(user?.role) && (
+              <DailyVisitSheet token={token} />
+            )}
 
           {page === 'staffRecords' &&
             user?.approval_status === 'approved' &&
@@ -553,7 +460,47 @@ function App() {
               <AppointmentBlocks token={token} user={user} />
             )}
 
-          {page === 'dashboard' && user && (
+          {page === 'dailyExceptions' &&
+            user?.approval_status === 'approved' &&
+            ['admin', 'staff'].includes(user?.role) && (
+              <DailyExceptions token={token} user={user} />
+            )}
+          {page === 'departments' &&
+            user?.role === 'admin' &&
+            user?.approval_status === 'approved' && (
+              <Departments token={token} />
+            )}
+          
+          {page === 'dashboard' &&
+            user?.approval_status === 'approved' &&
+            ['admin', 'staff'].includes(user?.role) && (
+              <StaffDashboard token={token} user={user} />
+            )}
+          
+           {page === 'settings' && user && (
+            <UserSettings
+              token={token}
+              user={user}
+              onSaved={setAlertSettings}
+            />
+          )}
+
+          {page === 'profile' && user && (
+            <MyProfile
+              token={token}
+              onUpdated={(updatedUser) => {
+                setUser((previous) => ({
+                  ...previous,
+                  ...updatedUser,
+                }));
+              }}
+            />
+          )}
+
+          {page === 'dashboard' &&
+            user &&
+            !['admin', 'staff'].includes(user.role) && (
+
             <main className="auth-page">
               <section className="dashboard-card">
                 <span className="eyebrow">MY ACCOUNT</span>

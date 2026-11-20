@@ -23,6 +23,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'approved_at' => 'datetime',
+            'walk_in_alerts' => 'boolean',
         ];
     }
 }
