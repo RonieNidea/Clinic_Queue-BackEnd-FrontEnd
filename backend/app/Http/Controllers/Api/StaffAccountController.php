@@ -33,12 +33,9 @@ class StaffAccountController extends Controller
             'department' => [
                 'exclude_unless:role,staff',
                 'required',
-                Rule::in([
-                    'General Medicine',
-                    'Nursing Assistance',
-                    'Basic First Aid',
-                    'Health Assessment',
-                ]),
+                'string',
+                Rule::exists('departments', 'code')
+                    ->where('is_active', true),
             ],
             'password' => [
                 'required',

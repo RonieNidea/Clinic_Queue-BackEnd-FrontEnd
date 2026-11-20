@@ -14,7 +14,9 @@ export async function apiRequest(endpoint, options = {}) {
       ...fetchOptions,
       headers: {
         Accept: 'application/json',
-        'Content-Type': 'application/json',
+        ...(fetchOptions.body instanceof FormData
+          ? {}
+          : { 'Content-Type': 'application/json' }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...headers,
       },

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiRequest } from '../services/api'; 
 import VisitSlipButton from './VisitSlipButton';
+import VisitReportForm from './VisitReportForm';
 
 function StudentVisitHistory({ token, visitId, onClose }) {
   const [patient, setPatient] = useState(null);
@@ -131,6 +132,10 @@ function StudentVisitHistory({ token, visitId, onClose }) {
                     visitId={visit.id}
                   />
                 )}
+                <VisitReportForm
+                  token={token}
+                  visitId={visit.id}
+                />
               </article>
             ))}
           </div>

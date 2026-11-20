@@ -11,7 +11,7 @@ function readSavedQueue() {
   }
 }
 
-function LiveQueueBoard() {
+function LiveQueueBoard({ alertsEnabled = true }) {
   const [board, setBoard] = useState(null);
   const [tracked, setTracked] = useState(readSavedQueue);
   const [error, setError] = useState('');
@@ -184,7 +184,7 @@ function LiveQueueBoard() {
                 </strong>
               </p>
 
-              {nearlyUp && (
+              {alertsEnabled && nearlyUp && (
                 <p className="near-turn-notice" role="status">
                   Your turn is nearly up. Please stay near the department.
                 </p>

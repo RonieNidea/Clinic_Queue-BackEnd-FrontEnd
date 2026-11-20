@@ -1,27 +1,28 @@
 import { useState } from 'react';
 import { apiRequest } from '../services/api';
+import useDepartments from '../hooks/useDepartments';
 
 const emptyForm = {
   name: '',
   email: '',
   role: 'staff',
-  department: 'General Medicine',
+  department: '',
   password: '',
   password_confirmation: '',
 };
-
-const departments = [
-  'General Medicine',
-  'Nursing Assistance',
-  'Basic First Aid',
-  'Health Assessment',
-];
 
 function CreateStaffAccount({ token }) {
   const [form, setForm] = useState({ ...emptyForm });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [created, setCreated] = useState(null);
+
+  const {
+    departments,
+    loading: departmentsLoading,
+    error: departmentsError,
+    reload: reloadDepartments,
+  } = useDepartments();
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -37,15 +38,33 @@ function CreateStaffAccount({ token }) {
 
     if (saving) return;
 
-    setSaving(true);
     setError('');
     setCreated(null);
+
+    if (
+      form.role === 'staff' &&
+      (
+        departmentsLoading ||
+        departmentsError ||
+        !departments.some(
+          (department) => department.code === form.department
+        )
+      )
+    ) {
+      setError('Please select an active department.');
+      return;
+    }
+
+    setSaving(true);
 
     try {
       const data = await apiRequest('/admin/staff', {
         method: 'POST',
         token,
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          department: form.role === 'staff' ? form.department : null,
+        }),
       });
 
       setCreated(data);
@@ -57,12 +76,22 @@ function CreateStaffAccount({ token }) {
     }
   }
 
+  const departmentUnavailable =
+    form.role === 'staff' &&
+    (
+      departmentsLoading ||
+      Boolean(departmentsError) ||
+      !departments.some(
+        (department) => department.code === form.department
+      )
+    );
+
   return (
     <main className="staff-approvals-page">
       <div className="section-heading">
         <span className="eyebrow">ADMINISTRATION</span>
         <h1>Create Staff Account</h1>
-        <p>Register a staff member and assign their department.</p>
+        <p>Create a reception account or assign staff to a department.</p>
       </div>
 
       {created && (
@@ -71,7 +100,8 @@ function CreateStaffAccount({ token }) {
           <p>{created.message}</p>
           <p><strong>Name:</strong> {created.staff.name}</p>
           <p><strong>Email:</strong> {created.staff.email}</p>
-                    <p>
+
+          <p>
             <strong>Staff type:</strong>{' '}
             {created.staff.role === 'reception'
               ? 'Reception Staff'
@@ -80,13 +110,20 @@ function CreateStaffAccount({ token }) {
 
           {created.staff.department && (
             <p>
-              <strong>Department:</strong> {created.staff.department}
+              <strong>Department:</strong>{' '}
+              {departments.find(
+                (department) =>
+                  department.code === created.staff.department
+              )?.name || created.staff.department}
             </p>
           )}
         </section>
       )}
 
-      <form className="auth-card invitation-form" onSubmit={handleSubmit}>
+      <form
+        className="auth-card invitation-form"
+        onSubmit={handleSubmit}
+      >
         <h2>Staff Details</h2>
 
         {error && (
@@ -123,7 +160,7 @@ function CreateStaffAccount({ token }) {
           />
         </label>
 
-                <label>
+        <label>
           Staff type
           <select
             name="role"
@@ -138,27 +175,64 @@ function CreateStaffAccount({ token }) {
         </label>
 
         {form.role === 'staff' ? (
-          <label>
-            Department
-            <select
-              name="department"
-              value={form.department}
-              onChange={handleChange}
-              disabled={saving}
-              required
-            >
-              {departments.map((department) => (
-                <option key={department} value={department}>
-                  {department}
+          <div>
+            <label>
+              Department
+              <select
+                name="department"
+                value={form.department}
+                onChange={handleChange}
+                disabled={saving || departmentsLoading}
+                required
+              >
+                <option value="">
+                  {departmentsLoading
+                    ? 'Loading departments...'
+                    : 'Select a department'}
                 </option>
-              ))}
-            </select>
-          </label>
+
+                {departments.map((department) => (
+                  <option
+                    key={department.id}
+                    value={department.code}
+                  >
+                    {department.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {departmentsError && (
+              <>
+                <p className="appointment-error" role="alert">
+                  {departmentsError}
+                </p>
+
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={saving || departmentsLoading}
+                  onClick={reloadDepartments}
+                >
+                  Retry Loading Departments
+                </button>
+              </>
+            )}
+
+            {!departmentsLoading &&
+              !departmentsError &&
+              departments.length === 0 && (
+                <p>
+                  No active departments are available.
+                  Create or activate a department first.
+                </p>
+              )}
+          </div>
         ) : (
           <p className="staff-registration-note">
             Reception staff register walk-in patients and select
-            the department they need to visit. No department
-            assignment is required for this account.
+            their destination department. No department assignment
+            is required for this account.
           </p>
         )}
 
@@ -198,7 +272,7 @@ function CreateStaffAccount({ token }) {
         <button
           type="submit"
           className="primary-button submit-button"
-          disabled={saving}
+          disabled={saving || departmentUnavailable}
         >
           {saving ? 'Creating...' : 'Create Staff Account'}
         </button>

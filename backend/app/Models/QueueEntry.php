@@ -19,6 +19,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'appointment_id',
     'user_id',
     'active_patient_key',
+    'called_at',
+    'arrived_at',
+    'no_show_at',
+    'serving_key',
+    'handled_by',
 ])]
 class QueueEntry extends Model
 {
@@ -28,6 +33,9 @@ class QueueEntry extends Model
             'queue_date' => 'date:Y-m-d',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
+            'called_at' => 'datetime',
+            'arrived_at' => 'datetime',
+            'no_show_at' => 'datetime',
         ];
     }
         public function visit(): HasOne

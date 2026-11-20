@@ -48,7 +48,6 @@ function RescheduleAppointment({
       setLoading(true);
       setSlotsError('');
       setSlots([]);
-      setTime('');
       setClinicClosed(false);
 
       if (!date) {
@@ -70,6 +69,15 @@ function RescheduleAppointment({
         if (!cancelled) {
           setSlots(data.slots);
           setClinicClosed(data.clinic_closed);
+
+          setTime((selectedTime) =>
+            data.slots.some(
+              (slot) =>
+                slot.time === selectedTime && slot.available
+            )
+              ? selectedTime
+              : ''
+          );
         }
       } catch (err) {
         if (!cancelled) {
@@ -122,12 +130,15 @@ function RescheduleAppointment({
         } catch (err) {
       setError(
         err.status === 409
-          ? 'That slot was just taken by another patient. Your original booking is unchanged. Please choose another available time.'
-          : err.message
+          ? 'That slot was just taken. Your original appointment is unchanged. Please choose another available time.'
+          : err.status
+            ? `${err.message} Your form details have been kept.`
+            : `${err.message} Your selection has been kept. Check My Appointments before retrying because the change could not be confirmed.`
       );
 
-      setTime('');
-      setRefresh((value) => value + 1);
+      if (err.status === 409 || err.status === 422) {
+        setRefresh((value) => value + 1);
+      }
     } finally {
       setSaving(false);
     }
