@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Controllers\Api\AnnouncementController;
 use App\Http\Controllers\Api\AppointmentBlockController;
 use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DailyExceptionsController;
+use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DepartmentQueueController;
 use App\Http\Controllers\Api\PatientQueueController;
 use App\Http\Controllers\Api\PatientVisitController;
@@ -19,7 +21,6 @@ use App\Http\Middleware\EnsureReceptionOrAdmin;
 use App\Http\Middleware\LockClinicSchedule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\DepartmentController;
 
 // Public authentication.
 Route::post('/register', [AuthController::class, 'register'])
@@ -27,6 +28,10 @@ Route::post('/register', [AuthController::class, 'register'])
 
 Route::post('/login', [AuthController::class, 'login'])
     ->middleware('throttle:5,1');
+
+// Public clinic announcements.
+Route::get('/announcements', [AnnouncementController::class, 'index'])
+    ->middleware('throttle:60,1');
 
 // Public queue board.
 Route::get('/queues/live-board', [QueueController::class, 'liveBoard'])
@@ -84,6 +89,11 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum', EnsureAdmin::class])
     ->prefix('admin')
     ->group(function () {
+        Route::get('/announcements', [AnnouncementController::class, 'adminIndex']);
+        Route::post('/announcements', [AnnouncementController::class, 'store']);
+        Route::patch('/announcements/{announcement}', [AnnouncementController::class, 'update']);
+        Route::delete('/announcements/{announcement}', [AnnouncementController::class, 'destroy']);
+
         Route::get(
             '/departments',
             [DepartmentController::class, 'adminIndex']

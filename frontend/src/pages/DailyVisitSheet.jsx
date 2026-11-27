@@ -134,8 +134,11 @@ const printStyles = `
   }
 `;
 
-function DailyVisitSheet({ token }) {
+function DailyVisitSheet({ token, user }) {
+  const isAdmin = user.role === 'admin';
   const [date, setDate] = useState(todayInManila);
+  const [department, setDepartment] = useState('all');
+  const [departments, setDepartments] = useState([]);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -146,6 +149,15 @@ function DailyVisitSheet({ token }) {
   const [printVersion, setPrintVersion] = useState(0);
 
   const frame = useRef(null);
+  const selectedDepartment = isAdmin ? department : user.department;
+  const ready =
+    data &&
+    data.date === date &&
+    data.department_filter === selectedDepartment;
+  const snapshotReady =
+    snapshot &&
+    snapshot.date === date &&
+    snapshot.department_filter === selectedDepartment;
 
   useEffect(() => {
     let cancelled = false;
@@ -155,13 +167,16 @@ function DailyVisitSheet({ token }) {
       setError('');
       setData(null);
 
-      if (!date) {
+      if (!date || !selectedDepartment) {
         setLoading(false);
         return;
       }
 
       try {
-        const query = new URLSearchParams({ date });
+        const query = new URLSearchParams({
+          date,
+          department: selectedDepartment,
+        });
 
         const result = await apiRequest(
           `/staff/daily-visit-sheet?${query}`,
@@ -170,6 +185,7 @@ function DailyVisitSheet({ token }) {
 
         if (!cancelled) {
           setData(result);
+          setDepartments(result.available_departments);
         }
       } catch (err) {
         if (!cancelled) {
@@ -187,10 +203,10 @@ function DailyVisitSheet({ token }) {
     return () => {
       cancelled = true;
     };
-  }, [token, date, refresh]);
+  }, [token, date, selectedDepartment, refresh]);
 
   useEffect(() => {
-    if (!snapshot || !printDocument) return;
+    if (!snapshotReady || !printDocument) return;
 
     const printWindow = frame.current?.contentWindow;
 
@@ -206,10 +222,15 @@ function DailyVisitSheet({ token }) {
     });
 
     return () => window.cancelAnimationFrame(request);
-  }, [snapshot, printDocument]);
+  }, [snapshot, snapshotReady, printDocument]);
+
+  function clearPrintPreview() {
+    setSnapshot(null);
+    setPrintDocument(null);
+  }
 
   function handlePrint() {
-    if (!data || data.date !== date || loading) return;
+    if (!ready || loading || data.visits.length === 0) return;
 
     setError('');
     setPrintDocument(null);
@@ -217,14 +238,20 @@ function DailyVisitSheet({ token }) {
     setPrintVersion((value) => value + 1);
   }
 
-  const ready = data && data.date === date;
-
   return (
     <main className="history-page">
       <div className="section-heading">
         <span className="eyebrow">STAFF REPORTS</span>
-        <h1>Daily Visit Sheet</h1>
-        <p>Preview and print the completed visits for a selected date.</p>
+        <h1>
+          {isAdmin
+            ? 'Daily Visit Sheets'
+            : `${user.department} Daily Visit Sheet`}
+        </h1>
+        <p>
+          {isAdmin
+            ? 'Choose a department and date to preview or print completed visits.'
+            : 'Preview and print completed visits you can access in your department.'}
+        </p>
       </div>
 
       <div className="history-toolbar exceptions-toolbar">
@@ -233,15 +260,43 @@ function DailyVisitSheet({ token }) {
           <input
             type="date"
             value={date}
-            onChange={(event) => setDate(event.target.value)}
+            onChange={(event) => {
+              clearPrintPreview();
+              setDate(event.target.value);
+            }}
           />
         </label>
+
+        {isAdmin ? (
+          <label>
+            Department
+            <select
+              value={department}
+              onChange={(event) => {
+                clearPrintPreview();
+                setDepartment(event.target.value);
+              }}
+            >
+              <option value="all">All departments</option>
+              {departments.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <p><strong>Department:</strong> {user.department}</p>
+        )}
 
         <button
           type="button"
           className="secondary-button"
           disabled={loading || !date}
-          onClick={() => setRefresh((value) => value + 1)}
+          onClick={() => {
+            clearPrintPreview();
+            setRefresh((value) => value + 1);
+          }}
         >
           Refresh
         </button>
@@ -256,6 +311,13 @@ function DailyVisitSheet({ token }) {
         </button>
       </div>
 
+      {!isAdmin && (
+        <p className="clinic-info-note">
+          Your sheet is limited to your department. Records marked
+          &quot;Admin only&quot; are excluded.
+        </p>
+      )}
+
       {error && (
         <div className="notice error" role="alert">
           {error}
@@ -268,8 +330,12 @@ function DailyVisitSheet({ token }) {
         <p>Select a date to view completed visits.</p>
       ) : ready && data.visits.length === 0 ? (
         <section className="history-empty">
-          <h2>No completed visits for this date</h2>
-          <p>Choose another date or complete a visit record first.</p>
+          <h2>No completed visits to show</h2>
+          <p>
+            {isAdmin
+              ? 'No completed visits match this department and date.'
+              : `No completed visits are available to your account in ${user.department} for this date.`}
+          </p>
         </section>
       ) : ready ? (
         <div className="daily-sheet-preview">
@@ -277,7 +343,7 @@ function DailyVisitSheet({ token }) {
         </div>
       ) : null}
 
-      {snapshot && (
+      {snapshotReady && (
         <iframe
           key={printVersion}
           ref={frame}
@@ -301,7 +367,7 @@ function DailyVisitSheet({ token }) {
         />
       )}
 
-      {snapshot && printDocument && createPortal(
+      {snapshotReady && printDocument && createPortal(
         <>
           <style>{printStyles}</style>
           <SheetContent sheet={snapshot} />

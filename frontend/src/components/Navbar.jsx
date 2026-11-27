@@ -96,7 +96,7 @@ function Navbar({
       label: 'Reports',
       items: [
         ['dailyExceptions', 'No-shows & Cancellations'],
-        ['dailyVisitSheet', 'Daily Visit Sheet'],
+        ['dailyVisitSheet', isAdmin ? 'Daily Visit Sheets' : 'Department Daily Sheet'],
       ],
     });
   }
@@ -105,6 +105,7 @@ function Navbar({
     groups.push({
       label: 'Administration',
       items: [
+        ['manageAnnouncements', 'Announcements'],
         ['departments', 'Departments'],
         ['createStaff', 'Create Staff'],
         ['staffApprovals', 'Staff Accounts'],
