@@ -3266,3 +3266,72 @@ footer > span {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* Announcements published by clinic administrators */
+.announcement-editor {
+  max-width: 800px;
+  margin: 32px auto 40px;
+}
+
+.announcement-editor fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.announcement-editor textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d5e0ee;
+  border-radius: 8px;
+  color: #17345b;
+  background: #ffffff;
+  font: inherit;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.announcement-editor textarea:focus {
+  outline: 2px solid #2866b2;
+  outline-offset: 2px;
+}
+
+.announcement-management-list {
+  display: grid;
+  gap: 18px;
+}
+
+.announcement-management-card {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.announcement-content {
+  min-width: 0;
+}
+
+.announcement-content h3,
+.announcement-body {
+  overflow-wrap: anywhere;
+}
+
+.announcement-body {
+  white-space: pre-wrap;
+}
+
+.announcement-published-date {
+  display: block;
+  margin-bottom: 12px;
+  color: #66758a;
+  font-size: 12px;
+}
+
+.announcement-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin: 24px auto 0;
+}

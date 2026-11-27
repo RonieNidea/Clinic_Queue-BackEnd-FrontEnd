@@ -29,6 +29,7 @@ import DepartmentQueue from './pages/DepartmentQueue';
 import Navbar from './components/Navbar';
 import ClinicFees from './components/ClinicFees';
 import Departments from './pages/Departments';
+import ManageAnnouncements from './pages/ManageAnnouncements';
 
 const emptyForm = {
   name: '',
@@ -436,7 +437,7 @@ function App() {
           {page === 'dailyVisitSheet' &&
             user?.approval_status === 'approved' &&
             ['admin', 'staff'].includes(user?.role) && (
-              <DailyVisitSheet token={token} />
+              <DailyVisitSheet token={token} user={user} />
             )}
 
           {page === 'staffRecords' &&
@@ -465,6 +466,12 @@ function App() {
             ['admin', 'staff'].includes(user?.role) && (
               <DailyExceptions token={token} user={user} />
             )}
+          {page === 'manageAnnouncements' &&
+            user?.role === 'admin' &&
+            user?.approval_status === 'approved' && (
+              <ManageAnnouncements token={token} />
+            )}
+
           {page === 'departments' &&
             user?.role === 'admin' &&
             user?.approval_status === 'approved' && (

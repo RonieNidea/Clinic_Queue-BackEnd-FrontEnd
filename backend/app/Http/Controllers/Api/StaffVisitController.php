@@ -3,19 +3,26 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Appointment;
+use App\Models\QueueEntry;
+use App\Models\User;
 use App\Models\Visit;
+use App\Models\VisitReport;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
-use App\Models\Appointment;
-use App\Models\QueueEntry;
 use Illuminate\Support\Facades\DB;
-use App\Models\VisitReport;
-use App\Models\User;
+use Illuminate\Validation\Rule;
 
 class StaffVisitController extends Controller
 {
+    private const DEPARTMENTS = [
+        'General Medicine',
+        'Nursing Assistance',
+        'Basic First Aid',
+        'Health Assessment',
+    ];
+
     private function restrictPatientPrivacy(Builder $query): void
     {
         $query->where(function (Builder $allowed) {
@@ -28,6 +35,7 @@ class StaffVisitController extends Controller
                 );
         });
     }
+
     private function recordsQuery(Request $request): Builder
     {
         $user = $request->user();
@@ -42,12 +50,7 @@ class StaffVisitController extends Controller
         $query = Visit::query();
 
         if ($user->role === 'staff') {
-            if (! in_array($user->department, [
-                'General Medicine',
-                'Nursing Assistance',
-                'Basic First Aid',
-                'Health Assessment',
-            ], true)) {
+            if (! in_array($user->department, self::DEPARTMENTS, true)) {
                 abort(403, 'A valid department assignment is required.');
             }
 
@@ -90,7 +93,7 @@ class StaffVisitController extends Controller
         }
 
         if (! empty($validated['visit_date'])) {
-            $query->where('visit_date', $validated['visit_date']);
+            $query->whereDate('visit_date', $validated['visit_date']);
         }
 
         if (! empty($validated['service'])) {
@@ -119,10 +122,9 @@ class StaffVisitController extends Controller
             'services' => $services,
         ]);
 
-        
     }
 
-        public function history(Request $request, Visit $visit): JsonResponse
+    public function history(Request $request, Visit $visit): JsonResponse
     {
         $query = $this->recordsQuery($request);
 
@@ -164,7 +166,8 @@ class StaffVisitController extends Controller
             'visits' => $visits,
         ]);
     }
-        public function candidates(Request $request): JsonResponse
+
+    public function candidates(Request $request): JsonResponse
     {
         // Apply the existing role and department-assignment checks.
         $this->recordsQuery($request);
@@ -198,7 +201,8 @@ class StaffVisitController extends Controller
             'queues' => $queues,
         ]);
     }
-        public function store(Request $request): JsonResponse
+
+    public function store(Request $request): JsonResponse
     {
         $this->recordsQuery($request);
 
@@ -267,7 +271,7 @@ class StaffVisitController extends Controller
                 ], 409);
             }
 
-            $visit ??= new Visit();
+            $visit ??= new Visit;
 
             $completed = $validated['status'] === 'completed';
 
@@ -316,7 +320,7 @@ class StaffVisitController extends Controller
         }, 3);
     }
 
-        public function slip(Request $request, Visit $visit): JsonResponse
+    public function slip(Request $request, Visit $visit): JsonResponse
     {
         $record = $this->recordsQuery($request)
             ->whereKey($visit->id)
@@ -337,10 +341,10 @@ class StaffVisitController extends Controller
                 'care_given',
             ]),
         ]);
-        
+
     }
 
-        public function report(Request $request, Visit $visit): JsonResponse
+    public function report(Request $request, Visit $visit): JsonResponse
     {
         $record = $this->recordsQuery($request)
             ->whereKey($visit->id)
@@ -375,8 +379,7 @@ class StaffVisitController extends Controller
             'reported_by' => $request->user()->id,
             'field' => $validated['field'],
             'details' => $validated['details'],
-            'suggested_correction' =>
-                $validated['suggested_correction'] ?? null,
+            'suggested_correction' => $validated['suggested_correction'] ?? null,
             'status' => 'open',
         ]);
 
@@ -390,16 +393,36 @@ class StaffVisitController extends Controller
         ], 201);
     }
 
-        public function dailySheet(Request $request): JsonResponse
+    public function dailySheet(Request $request): JsonResponse
     {
         $query = $this->recordsQuery($request);
 
         $validated = $request->validate([
             'date' => ['required', 'date_format:Y-m-d'],
+            'department' => [
+                'sometimes',
+                'required',
+                'string',
+                Rule::in(['all', ...self::DEPARTMENTS]),
+            ],
         ]);
 
+        $user = $request->user();
+        $isAdmin = $user->role === 'admin';
+        $department = $isAdmin
+            ? ($validated['department'] ?? 'all')
+            : $user->department;
+
+        if (! $isAdmin && isset($validated['department']) && $validated['department'] !== $department) {
+            abort(403, 'You can view only your own department\'s daily visit sheet.');
+        }
+
+        if ($isAdmin && $department !== 'all') {
+            $query->where('department', $department);
+        }
+
         $visits = $query
-            ->where('visit_date', $validated['date'])
+            ->whereDate('visit_date', $validated['date'])
             ->where('status', 'completed')
             ->whereNotNull('completed_at')
             ->where('completed_at', '<=', now())
@@ -417,10 +440,12 @@ class StaffVisitController extends Controller
 
         return response()->json([
             'date' => $validated['date'],
-            'department' => $request->user()->role === 'admin'
+            'department' => $department === 'all'
                 ? 'All departments'
-                : $request->user()->department,
-            'prepared_by' => $request->user()->name,
+                : $department,
+            'department_filter' => $department,
+            'available_departments' => $isAdmin ? self::DEPARTMENTS : [$department],
+            'prepared_by' => $user->name,
             'total' => $visits->count(),
             'visits' => $visits,
         ]);
